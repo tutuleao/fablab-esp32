@@ -63,7 +63,7 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 | `SUPABASE_URL` | URL do projeto Supabase |
 | `SUPABASE_SERVICE_ROLE_KEY` | chave `service_role` |
 | `SESSION_SECRET` | segredo gerado no passo anterior |
-| `TZ` | `America/Sao_Paulo` |
+| `APP_TIMEZONE` | `America/Sao_Paulo` (opcional; já é o padrão) |
 
 4. Clique em **Deploy**. Não é necessário configurar build: a Vercel detecta `api/` e `public/` automaticamente. O arquivo **`vercel.json`** já cria as rotas `/app`, `/admin` e `/admin/dashboard`.
 
@@ -74,7 +74,7 @@ npx vercel
 npx vercel env add SUPABASE_URL
 npx vercel env add SUPABASE_SERVICE_ROLE_KEY
 npx vercel env add SESSION_SECRET
-npx vercel env add TZ
+npx vercel env add APP_TIMEZONE
 npx vercel --prod
 ```
 
@@ -84,7 +84,7 @@ npx vercel --prod
   - professor: `professor` / `fablab123`
   - admin: `admin` / `admin123`
 - Entre em **`/admin`** e troque as duas senhas na aba **Usuários**.
-- A agenda usa o fuso configurado em `TZ`; mantenha `America/Sao_Paulo`.
+- A agenda usa o fuso `America/Sao_Paulo` por padrão. Para outro fuso, defina `APP_TIMEZONE` (o nome `TZ` é reservado na Vercel).
 
 ### Testar o Supabase no computador
 
@@ -103,6 +103,26 @@ O console mostra `Banco: Supabase` quando a conexão está configurada e `Banco:
 - **Sem** essas variáveis: usa `data/db.json` (ideal para desenvolver offline).
 - As senhas são armazenadas com hash `scrypt` + salt.
 - A sessão é um cookie assinado (HMAC), então funciona em serverless sem guardar sessões em memória.
+
+### Problemas comuns em produção
+
+Se as páginas abrem, mas o login retorna **erro interno**, abra no navegador:
+
+```
+https://SEU-SITE.vercel.app/api/health
+```
+
+A resposta mostra se as variáveis chegaram ao servidor (`checks`) e qual foi o erro do banco. Causas mais comuns:
+
+| Sintoma | Correção |
+|---|---|
+| `supabaseUrl: false` ou `serviceRoleKey: false` | cadastre as variáveis na Vercel e faça **Redeploy** |
+| `relation "public.users" does not exist` | execute **`supabase/schema.sql`** no SQL Editor do Supabase |
+| `row-level security` / `42501` | use a chave **`service_role`**, não a `anon` |
+| `Invalid API key` / `PGRST301` | copie novamente a chave `service_role` |
+| `Invalid path` / `PGRST125` | em `SUPABASE_URL` use só `https://SEU-PROJETO.supabase.co` (sem `/rest/v1`) |
+
+Variáveis de ambiente só entram em vigor em um **novo deploy**.
 
 ## Acessos iniciais
 

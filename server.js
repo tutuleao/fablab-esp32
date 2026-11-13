@@ -225,9 +225,45 @@ const SLOTS = Object.fromEntries(
   DAY_ORDER.map((key) => [key, makeSlots(AVAILABILITY[key].windows)])
 );
 
+/* -------------------------------------------------------------------------- */
+/* Fuso horário da escola                                                     */
+/* A Vercel não permite a variável TZ, então calculamos o horário de          */
+/* America/Sao_Paulo com Intl. Pode ser trocado com APP_TIMEZONE.             */
+/* -------------------------------------------------------------------------- */
+
+const TIME_ZONE = process.env.APP_TIMEZONE || 'America/Sao_Paulo';
+const TIME_ZONE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false
+});
+
+function zonedNowParts() {
+  const parts = {};
+  for (const part of TIME_ZONE_FORMATTER.formatToParts(new Date())) {
+    if (part.type !== 'literal') parts[part.type] = part.value;
+  }
+  return {
+    year: Number(parts.year),
+    month: Number(parts.month),
+    day: Number(parts.day),
+    hour: Number(parts.hour) % 24,
+    minute: Number(parts.minute)
+  };
+}
+
+function zonedToday() {
+  const parts = zonedNowParts();
+  return `${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}`;
+}
+
 function getWeeks() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const parts = zonedNowParts();
+  const today = new Date(parts.year, parts.month - 1, parts.day, 12, 0, 0, 0);
   const monday = startOfWeek(today);
 
   return [0, 1, 2, 3].map((index) => {
@@ -259,12 +295,12 @@ function allAvailableDays() {
 }
 
 function isSlotInPast(date, start) {
-  const today = formatDate(new Date());
+  const today = zonedToday();
   if (date < today) return true;
   if (date > today) return false;
-  const now = new Date();
+  const now = zonedNowParts();
   const [hours, minutes] = String(start).split(':').map(Number);
-  return hours * 60 + minutes <= now.getHours() * 60 + now.getMinutes();
+  return hours * 60 + minutes <= now.hour * 60 + now.minute;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -402,6 +438,58 @@ function cleanText(value, maxLength) {
 
 function isValidRoom(room) {
   return ROOMS.includes(String(room || '').toUpperCase());
+}
+
+// Traduz erros comuns do Supabase para uma mensagem útil na tela de login.
+function storeErrorHint(error) {
+  const code = String((error && error.code) || '');
+  const text = String((error && error.message) || '');
+
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return 'Supabase não configurado. Defina SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY na Vercel e faça um novo deploy.';
+  }
+  if (code === '42P01' || /relation .* does not exist/i.test(text)) {
+    return 'As tabelas ainda não existem no Supabase. Execute o arquivo supabase/schema.sql no SQL Editor do projeto.';
+  }
+  if (code === '42501' || /row-level security/i.test(text)) {
+    return 'A chave configurada não tem permissão. Use a chave service_role do Supabase (não a chave anon).';
+  }
+  if (code === 'PGRST301' || /invalid api key|jwt/i.test(text)) {
+    return 'SUPABASE_SERVICE_ROLE_KEY inválida. Copie novamente a chave service_role no painel do Supabase.';
+  }
+  if (code === 'PGRST125' || /invalid path/i.test(text)) {
+    return 'SUPABASE_URL inválida. Use apenas https://SEU-PROJETO.supabase.co, sem /rest/v1 no final.';
+  }
+  if (code === 'ENOTFOUND' || code === 'EAI_AGAIN' || /fetch failed/i.test(text)) {
+    return 'Não foi possível conectar ao Supabase. Confira a SUPABASE_URL e tente novamente.';
+  }
+  return null;
+}
+
+async function handleHealth(req, res) {
+  if (req.method !== 'GET') {
+    return sendJson(res, 405, { error: 'Método não permitido.' });
+  }
+
+  const checks = {
+    supabaseUrl: Boolean(process.env.SUPABASE_URL),
+    serviceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+    sessionSecret: Boolean(process.env.SESSION_SECRET)
+  };
+
+  try {
+    await store.init();
+    return sendJson(res, 200, { ok: true, mode: store.mode, checks });
+  } catch (error) {
+    return sendJson(res, 500, {
+      ok: false,
+      mode: store.mode,
+      checks,
+      error: error.message,
+      code: error.code || null,
+      hint: storeErrorHint(error)
+    });
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -609,7 +697,7 @@ async function handleApi(req, res, url) {
         ])
       ),
       weeks: getWeeks(),
-      today: formatDate(new Date())
+      today: zonedToday()
     });
   }
 
@@ -687,7 +775,7 @@ async function handleApi(req, res, url) {
     const current = await requireAuth(req, res, 'admin');
     if (!current) return;
 
-    const today = formatDate(new Date());
+    const today = zonedToday();
     const [allBookings, allVisits, machines, users] = await Promise.all([
       store.listAllBookings(),
       store.listAllVisits(),
@@ -934,6 +1022,10 @@ async function handler(req, res) {
     return sendJson(res, 400, { error: 'Endereço inválido.' });
   }
 
+  if (pathname === '/api/health') {
+    return handleHealth(req, res);
+  }
+
   if (pathname.startsWith('/api/')) {
     try {
       await store.init();
@@ -946,6 +1038,8 @@ async function handler(req, res) {
         if (error.code === '23505') {
           status = 409;
           message = 'Já existe um registro com esses dados.';
+        } else if (status >= 500) {
+          message = storeErrorHint(error) || message;
         }
 
         if (status >= 500) console.error('Erro na API:', error);
