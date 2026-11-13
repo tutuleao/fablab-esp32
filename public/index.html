@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#e30613">
+  <title>Rede Fab Lab Presidente Prudente — Login</title>
+  <link rel="icon" href="/img/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body class="login-page">
+  <div class="login-bg-grid" aria-hidden="true"></div>
+
+  <main class="login-shell">
+    <section class="login-card">
+      <div class="login-card-top">
+        <a class="brand" href="/" aria-label="Rede Fab Lab Presidente Prudente">
+          <span class="brand-mark" aria-hidden="true"><span></span></span>
+          <span class="brand-text">
+            <strong>REDE FAB LAB</strong>
+            <small>Presidente Prudente</small>
+          </span>
+        </a>
+        <span class="pill">ACESSO DO PROFESSOR</span>
+      </div>
+
+      <div class="login-heading">
+        <p class="eyebrow">Gestão do Fab Lab</p>
+        <h1>REDE FAB LAB<br><span>PRESIDENTE PRUDENTE</span></h1>
+        <p class="muted">Agende o laboratório, organize a visita das turmas e acompanhe todos os horários em um só lugar.</p>
+      </div>
+
+      <form id="login-form" class="form" novalidate>
+        <label class="field">
+          <span>Usuário</span>
+          <input id="username" name="username" type="text" autocomplete="username" placeholder="Digite seu usuário" required autofocus>
+        </label>
+
+        <label class="field">
+          <span>Senha</span>
+          <span class="password-wrap">
+            <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Digite sua senha" required>
+            <button type="button" class="toggle-pass" id="toggle-password" aria-label="Mostrar senha">Mostrar</button>
+          </span>
+        </label>
+
+        <p class="form-error" id="login-error" role="alert" hidden></p>
+
+        <button type="submit" class="btn btn-primary btn-block" id="login-submit">Entrar</button>
+      </form>
+
+      <div class="login-footer">
+        <span>SESI • Educação para a indústria</span>
+        <a href="/admin" class="link-red">Acesso administrativo <span aria-hidden="true">→</span></a>
+      </div>
+    </section>
+
+    <aside class="login-side" aria-hidden="true">
+      <div class="side-badge">FAB<br>LAB</div>
+      <p>Prototipagem, tecnologia e criatividade para transformar ideias em projetos.</p>
+      <ul class="side-list">
+        <li><span>01</span> Agende a sala</li>
+        <li><span>02</span> Envie alunos</li>
+        <li><span>03</span> Use as máquinas</li>
+      </ul>
+    </aside>
+  </main>
+
+  <footer class="page-footer">Rede Fab Lab Presidente Prudente • Uso interno</footer>
+
+  <script src="/js/common.js"></script>
+  <script src="/js/login.js"></script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+{
+  "users": [
+    {
+      "name": "Administrador",
+      "username": "admin",
+      "role": "admin",
+      "passwordHash": "c10d5d9bd8058f27adb92c375a397b21:9d463b56864ddadfa7be515ea2c726dacfe5ef1b149e64ecc8692368f5bafeee72681ed07da1ccaaf9ac2b1b61353855b8c7fcadbe76524a41849378f73631f7",
+      "id": "0b11c155-0644-49ec-8c8b-48fc16dc5b4b",
+      "createdAt": "2026-11-12T15:45:48.161Z"
+    },
+    {
+      "name": "Professor(a)",
+      "username": "professor",
+      "role": "user",
+      "passwordHash": "489a4ce7e42ca05fe511f1ce847d1da4:43f59a56df804bc1eda3efc5533dd4dfc0d1b768cba722d0a4cd66b77f25c4807493b06ef27a33170bde4800b36498156f17f03773a03afce2ad8bd1db0b9809",
+      "id": "51df94a6-ddb3-42ca-bba3-70540b979b69",
+      "createdAt": "2026-11-12T15:45:48.162Z"
+    }
+  ],
+  "machines": [
+    {
+      "name": "Impressora 3D",
+      "id": "e0eb330e-7369-4391-88b2-4020193aef69",
+      "createdAt": "2026-11-12T15:45:48.162Z"
+    },
+    {
+      "name": "Cortadora a laser",
+      "id": "72ed53ec-ed0b-47e7-a402-2dd40cbb8692",
+      "createdAt": "2026-11-12T15:45:48.162Z"
+    },
+    {
+      "name": "Plotter de recorte",
+      "id": "94af8707-a43f-4df9-aa5b-dab8a592e414",
+      "createdAt": "2026-11-12T15:45:48.162Z"
+    },
+    {
+      "name": "Fresadora CNC",
+      "id": "e8c32654-7b71-4a20-af47-f357b412073c",
+      "createdAt": "2026-11-12T15:45:48.162Z"
+    },
+    {
+      "name": "Scanner 3D",
+      "id": "6bb2f4d1-0ff1-47ce-ac3b-642626a0506a",
+      "createdAt": "2026-11-12T15:45:48.162Z"
+    }
+  ],
+  "bookings": [],
+  "studentVisits": []
+}

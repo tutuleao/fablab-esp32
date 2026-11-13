@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Rede Fab Lab">
+  <rect width="64" height="64" rx="14" fill="#e30613"/>
+  <path d="M17 47V17h31v8H26v5h18v8H26v9h-9z" fill="#ffffff"/>
+  <path d="M41 40l7 7-7 7-7-7 7-7z" fill="#ffffff" opacity=".55"/>
+</svg>

@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#171717">
+  <title>Administração — Rede Fab Lab Presidente Prudente</title>
+  <link rel="icon" href="/img/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <header class="topbar admin-topbar">
+    <div class="topbar-inner">
+      <a class="brand brand-small" href="/admin/dashboard" aria-label="Rede Fab Lab Presidente Prudente">
+        <span class="brand-mark" aria-hidden="true"><span></span></span>
+        <span class="brand-text">
+          <strong>REDE FAB LAB</strong>
+          <small>Presidente Prudente</small>
+        </span>
+      </a>
+
+      <span class="admin-shell-label">ADMINISTRAÇÃO</span>
+
+      <div class="user-menu">
+        <a href="/app" class="nav-admin-link">Ir para a agenda</a>
+        <span class="user-chip">
+          <span class="avatar" id="admin-avatar">A</span>
+          <span id="admin-name">Administrador</span>
+        </span>
+        <button type="button" class="btn btn-ghost btn-sm" id="admin-logout">Sair</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Painel administrativo</p>
+        <h1>Controle do <span>Fab Lab</span>.</h1>
+        <p>Gerencie as máquinas, as contas de professores e acompanhe os agendamentos e as turmas enviadas.</p>
+      </div>
+      <div class="hero-date">
+        <span id="admin-today-weekday">Hoje</span>
+        <strong id="admin-today-date">—</strong>
+        <small>Rede Fab Lab Presidente Prudente</small>
+      </div>
+    </section>
+
+    <section class="stats-grid" id="admin-stats-grid" aria-label="Resumo administrativo">
+      <article class="stat-card">
+        <span class="stat-label">Próximas reservas</span>
+        <strong class="stat-value">—</strong>
+        <span class="stat-hint">A partir de hoje</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Alunos enviados</span>
+        <strong class="stat-value">—</strong>
+        <span class="stat-hint">Total registrado</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Máquinas</span>
+        <strong class="stat-value">—</strong>
+        <span class="stat-hint">Cadastradas</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Usuários</span>
+        <strong class="stat-value">—</strong>
+        <span class="stat-hint">Contas de acesso</span>
+      </article>
+    </section>
+
+    <nav class="admin-tabs" aria-label="Seções administrativas">
+      <button type="button" class="admin-tab is-active" data-admin-view="overview">Visão geral</button>
+      <button type="button" class="admin-tab" data-admin-view="bookings">Agendamentos</button>
+      <button type="button" class="admin-tab" data-admin-view="visits">Alunos enviados</button>
+      <button type="button" class="admin-tab" data-admin-view="machines">Máquinas</button>
+      <button type="button" class="admin-tab" data-admin-view="users">Usuários</button>
+    </nav>
+
+    <section class="admin-tab-content" id="admin-view-overview">
+      <div class="admin-grid">
+        <div class="card admin-card">
+          <div class="admin-card-head">
+            <div>
+              <h3>Próximos agendamentos</h3>
+              <p>Reservas confirmadas a partir de hoje.</p>
+            </div>
+            <span class="tag tag-red" id="overview-bookings-count">0</span>
+          </div>
+          <div class="overview-list" id="overview-upcoming"></div>
+        </div>
+
+        <div class="card admin-card">
+          <div class="admin-card-head">
+            <div>
+              <h3>Últimos envios de alunos</h3>
+              <p>Projetos, pesquisas e visitas registradas.</p>
+            </div>
+          </div>
+          <div class="overview-list" id="overview-visits"></div>
+        </div>
+      </div>
+
+      <div class="inline-note" style="margin-top:17px">
+        <span aria-hidden="true">●</span>
+        <span><strong>Dica:</strong> cadastre uma conta individual para cada professor na aba <strong>Usuários</strong>. As máquinas disponíveis para os agendamentos são definidas na aba <strong>Máquinas</strong>.</span>
+      </div>
+    </section>
+
+    <section class="admin-tab-content" id="admin-view-bookings" hidden>
+      <div class="admin-section-head">
+        <div>
+          <p class="eyebrow">Agenda</p>
+          <h2>Todos os agendamentos</h2>
+          <p>Consulte as reservas de todas as semanas e cancele quando necessário.</p>
+        </div>
+        <span class="tag tag-dark" id="admin-bookings-count">0 reservas</span>
+      </div>
+
+      <div class="card table-card">
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Horário</th>
+                <th>Turma</th>
+                <th>Alunos</th>
+                <th>Motivo</th>
+                <th>Máquina</th>
+                <th>Solicitante</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="admin-bookings-body">
+              <tr><td colspan="8" class="table-empty">Carregando agendamentos...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="admin-tab-content" id="admin-view-visits" hidden>
+      <div class="admin-section-head">
+        <div>
+          <p class="eyebrow">Projetos e pesquisas</p>
+          <h2>Alunos enviados</h2>
+          <p>Acompanhe os envios de alunos feitos pelos professores.</p>
+        </div>
+        <span class="tag tag-dark" id="admin-visits-count">0 registros</span>
+      </div>
+
+      <div class="card table-card">
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Enviado em</th>
+                <th>Turma</th>
+                <th>Propósito</th>
+                <th>Alunos</th>
+                <th>Tempo médio</th>
+                <th>Solicitante</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="admin-visits-body">
+              <tr><td colspan="7" class="table-empty">Carregando registros...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="admin-tab-content" id="admin-view-machines" hidden>
+      <div class="admin-section-head">
+        <div>
+          <p class="eyebrow">Equipamentos</p>
+          <h2>Máquinas do Fab Lab</h2>
+          <p>Os nomes cadastrados aqui aparecem no pop-up de agendamento.</p>
+        </div>
+        <span class="tag tag-dark" id="admin-machines-count">0 máquinas</span>
+      </div>
+
+      <div class="admin-grid">
+        <div class="card admin-card">
+          <div class="admin-card-head">
+            <div>
+              <h3>Máquinas cadastradas</h3>
+              <p>Edite o nome e clique em salvar, ou remova o equipamento.</p>
+            </div>
+          </div>
+
+          <form class="inline-form" id="machine-form">
+            <input type="text" id="machine-name" maxlength="80" placeholder="Nome da nova máquina" autocomplete="off" required>
+            <button type="submit" class="btn btn-primary" id="machine-submit">Adicionar</button>
+          </form>
+
+          <div class="machine-list" id="machine-list"></div>
+        </div>
+
+        <div class="card admin-card">
+          <div class="admin-card-head">
+            <div>
+              <h3>Como funciona</h3>
+            </div>
+          </div>
+          <div class="overview-list">
+            <div class="overview-row">
+              <div class="overview-date">01</div>
+              <div class="overview-info">
+                <strong>Cadastre as máquinas</strong>
+                <span>Inclua impressoras, cortadoras, plotters e outros equipamentos.</span>
+              </div>
+            </div>
+            <div class="overview-row">
+              <div class="overview-date">02</div>
+              <div class="overview-info">
+                <strong>Aparecem no agendamento</strong>
+                <span>O professor escolhe se precisa de máquina e qual equipamento usar.</span>
+              </div>
+            </div>
+            <div class="overview-row">
+              <div class="overview-date">03</div>
+              <div class="overview-info">
+                <strong>Altere quando quiser</strong>
+                <span>Renomear uma máquina atualiza também as reservas existentes.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="admin-tab-content" id="admin-view-users" hidden>
+      <div class="admin-section-head">
+        <div>
+          <p class="eyebrow">Acessos</p>
+          <h2>Usuários do sistema</h2>
+          <p>Cadastre contas para os professores acessarem a agenda e enviarem alunos.</p>
+        </div>
+        <span class="tag tag-dark" id="admin-users-count">0 usuários</span>
+      </div>
+
+      <div class="admin-grid">
+        <div class="card admin-card">
+          <div class="admin-card-head">
+            <div>
+              <h3>Contas cadastradas</h3>
+              <p>Contas administrativas não podem ser excluídas por esta tela.</p>
+            </div>
+          </div>
+          <div class="user-list" id="user-list"></div>
+        </div>
+
+        <div class="card admin-card">
+          <div class="admin-card-head">
+            <div>
+              <h3>Nova conta de professor</h3>
+              <p>O usuário e a senha serão usados na tela de login.</p>
+            </div>
+          </div>
+
+          <form id="user-form" class="form" novalidate>
+            <label class="field">
+              <span>Nome completo</span>
+              <input type="text" id="new-user-name" maxlength="80" placeholder="Ex.: Maria Silva" autocomplete="off" required>
+            </label>
+            <label class="field">
+              <span>Usuário</span>
+              <input type="text" id="new-username" maxlength="40" placeholder="Ex.: maria.silva" autocomplete="off" required>
+            </label>
+            <label class="field">
+              <span>Senha inicial</span>
+              <input type="password" id="new-user-password" minlength="4" placeholder="Mínimo de 4 caracteres" autocomplete="new-password" required>
+            </label>
+            <p class="form-error" id="user-form-error" role="alert" hidden></p>
+            <button type="submit" class="btn btn-primary btn-block" id="user-submit">Cadastrar usuário</button>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="/js/common.js"></script>
+  <script src="/js/admin.js"></script>
+</body>
+</html>

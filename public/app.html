@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#e30613">
+  <title>Agenda — Rede Fab Lab Presidente Prudente</title>
+  <link rel="icon" href="/img/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand brand-small" href="/app" aria-label="Rede Fab Lab Presidente Prudente">
+        <span class="brand-mark" aria-hidden="true"><span></span></span>
+        <span class="brand-text">
+          <strong>REDE FAB LAB</strong>
+          <small>Presidente Prudente</small>
+        </span>
+      </a>
+
+      <nav class="main-nav" aria-label="Navegação principal">
+        <button type="button" class="nav-btn is-active" data-view="agenda">Agenda</button>
+        <button type="button" class="nav-btn" data-view="alunos">Enviar alunos</button>
+      </nav>
+
+      <div class="user-menu">
+        <a href="/admin/dashboard" class="nav-admin-link" id="admin-link" hidden>Administração</a>
+        <span class="user-chip">
+          <span class="avatar" id="user-avatar">P</span>
+          <span id="user-name">Professor(a)</span>
+        </span>
+        <button type="button" class="btn btn-ghost btn-sm" id="logout">Sair</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Painel do Fab Lab</p>
+        <h1>Olá, <span id="greeting-name">Professor(a)</span>.</h1>
+        <p>Reserve o laboratório, acompanhe a agenda da semana e envie alunos para projetos e pesquisas.</p>
+      </div>
+      <div class="hero-date">
+        <span id="today-weekday">Hoje</span>
+        <strong id="today-date">—</strong>
+        <small>Rede Fab Lab Presidente Prudente</small>
+      </div>
+    </section>
+
+    <section class="stats-grid" id="stats-grid" aria-label="Resumo do Fab Lab">
+      <article class="stat-card">
+        <span class="stat-label">Reservas na semana</span>
+        <strong class="stat-value">—</strong>
+        <span class="stat-hint">Horários agendados</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Alunos enviados</span>
+        <strong class="stat-value">—</strong>
+        <span class="stat-hint">Projetos e pesquisas</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Alunos na agenda</span>
+        <strong class="stat-value">—</strong>
+        <span class="stat-hint">Somando a semana</span>
+      </article>
+      <article class="stat-card">
+        <span class="stat-label">Máquinas</span>
+        <strong class="stat-value">—</strong>
+        <span class="stat-hint">Disponíveis para uso</span>
+      </article>
+    </section>
+
+    <section class="view" id="view-agenda">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Horários</p>
+          <h2>Agenda do Fab Lab</h2>
+          <p>Selecione um ou mais tempos consecutivos (30, 40 ou 50 min) e reserve a sala. Intervalos de 20 min: 08:40 e 15:50.</p>
+        </div>
+        <button type="button" class="btn btn-primary" id="open-student-modal-agenda">+ Adicionar aluno</button>
+      </div>
+
+      <div class="week-tabs" id="week-tabs" role="tablist" aria-label="Semanas disponíveis"></div>
+
+      <div class="schedule-layout">
+        <div class="card schedule-card">
+          <div class="schedule-head">
+            <div>
+              <h3 id="week-title">Agenda</h3>
+              <p id="week-subtitle">Carregando horários...</p>
+            </div>
+            <div class="legend" aria-label="Legenda">
+              <span><i class="dot dot-free"></i> Livre</span>
+              <span><i class="dot dot-selected"></i> Selecionado</span>
+              <span><i class="dot dot-booked"></i> Ocupado</span>
+              <span><i class="dot dot-past"></i> Indisponível</span>
+            </div>
+          </div>
+
+          <p class="schedule-mobile-hint">Arraste a grade para o lado para ver todos os dias.</p>
+
+          <div class="schedule-scroll">
+            <table class="schedule-table" id="schedule-table">
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <div class="selection-bar" id="selection-bar" hidden>
+            <div>
+              <strong id="selection-title">Horário selecionado</strong>
+              <span id="selection-detail"></span>
+            </div>
+            <div class="selection-actions">
+              <button type="button" class="btn btn-ghost btn-sm" id="clear-selection">Limpar</button>
+              <button type="button" class="btn btn-primary btn-sm" id="book-selection">Agendar horário</button>
+            </div>
+          </div>
+        </div>
+
+        <aside class="card side-card">
+          <div class="side-card-head">
+            <h3>Agendados nesta semana</h3>
+            <span class="tag tag-red" id="week-bookings-count">0</span>
+          </div>
+          <div class="booking-list" id="week-bookings"></div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="view" id="view-alunos" hidden>
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Projetos e pesquisas</p>
+          <h2>Alunos enviados ao Fab Lab</h2>
+          <p>Registre a turma, o propósito, a quantidade de alunos e o tempo médio de permanência.</p>
+        </div>
+        <button type="button" class="btn btn-primary" id="open-student-modal">+ Adicionar aluno</button>
+      </div>
+
+      <div class="card table-card">
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Enviado em</th>
+                <th>Turma</th>
+                <th>Propósito</th>
+                <th>Alunos</th>
+                <th>Tempo médio</th>
+                <th>Registrado por</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="visits-table-body">
+              <tr><td colspan="7" class="table-empty">Carregando registros...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modal de agendamento -->
+  <dialog class="modal" id="booking-modal">
+    <form class="modal-card" id="booking-form" novalidate>
+      <div class="modal-head">
+        <div>
+          <p class="eyebrow">Reservar sala</p>
+          <h2>Confirmar agendamento</h2>
+        </div>
+        <button type="button" class="icon-btn" data-close aria-label="Fechar">×</button>
+      </div>
+
+      <div class="booking-summary" id="booking-summary"></div>
+
+      <div class="form-grid">
+        <label class="field">
+          <span>Turma / sala</span>
+          <select id="booking-room" required></select>
+        </label>
+
+        <label class="field">
+          <span>Quantidade de alunos</span>
+          <input id="booking-students" type="number" min="1" max="80" placeholder="Ex.: 28" required>
+        </label>
+
+        <label class="field field-full">
+          <span>Motivo <small>máx. 200 caracteres</small></span>
+          <textarea id="booking-purpose" maxlength="200" rows="3" placeholder="Ex.: Aula de prototipagem com impressão 3D" required></textarea>
+        </label>
+
+        <label class="field field-full">
+          <span>Precisa usar alguma máquina?</span>
+          <select id="booking-machine">
+            <option value="">Não precisa</option>
+          </select>
+        </label>
+      </div>
+
+      <p class="form-error" id="booking-error" role="alert" hidden></p>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="booking-submit">Confirmar agendamento</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Modal de envio de alunos -->
+  <dialog class="modal" id="student-modal">
+    <form class="modal-card" id="student-form" novalidate>
+      <div class="modal-head">
+        <div>
+          <p class="eyebrow">Projetos e pesquisas</p>
+          <h2>Adicionar aluno</h2>
+        </div>
+        <button type="button" class="icon-btn" data-close aria-label="Fechar">×</button>
+      </div>
+
+      <div class="form-grid">
+        <label class="field">
+          <span>Sala / turma</span>
+          <select id="visit-room" required></select>
+        </label>
+
+        <label class="field">
+          <span>Quantidade de alunos</span>
+          <input id="visit-students" type="number" min="1" max="80" placeholder="Ex.: 30" required>
+        </label>
+
+        <label class="field field-full">
+          <span>Propósito</span>
+          <input id="visit-purpose" type="text" list="visit-purpose-options" maxlength="100" placeholder="Projeto ou pesquisa" required>
+          <datalist id="visit-purpose-options">
+            <option value="Projeto"></option>
+            <option value="Pesquisa"></option>
+            <option value="Aula prática"></option>
+            <option value="Visita guiada"></option>
+          </datalist>
+        </label>
+
+        <label class="field field-full">
+          <span>Tempo médio que ficarão no Fab Lab</span>
+          <select id="visit-avg-time" required></select>
+        </label>
+      </div>
+
+      <p class="form-error" id="visit-error" role="alert" hidden></p>
+
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn btn-primary" id="student-submit">Enviar alunos</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="/js/common.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

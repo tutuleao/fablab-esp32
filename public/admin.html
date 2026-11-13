@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#171717">
+  <title>Administração — Rede Fab Lab Presidente Prudente</title>
+  <link rel="icon" href="/img/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body class="login-page admin-login">
+  <div class="login-bg-grid" aria-hidden="true"></div>
+
+  <main class="login-shell">
+    <section class="login-card">
+      <div class="login-card-top">
+        <a class="brand" href="/" aria-label="Rede Fab Lab Presidente Prudente">
+          <span class="brand-mark" aria-hidden="true"><span></span></span>
+          <span class="brand-text">
+            <strong>REDE FAB LAB</strong>
+            <small>Presidente Prudente</small>
+          </span>
+        </a>
+        <span class="pill">ACESSO ADMINISTRATIVO</span>
+      </div>
+
+      <div class="login-heading">
+        <p class="eyebrow">Área administrativa</p>
+        <h1>GESTÃO DO<br><span>FAB LAB</span></h1>
+        <p class="muted">Entre com a conta de administrador para cadastrar máquinas, gerenciar usuários e acompanhar agendamentos e turmas.</p>
+      </div>
+
+      <form id="admin-login-form" class="form" novalidate>
+        <label class="field">
+          <span>Usuário administrador</span>
+          <input id="admin-username" name="username" type="text" autocomplete="username" placeholder="Digite o usuário admin" required autofocus>
+        </label>
+
+        <label class="field">
+          <span>Senha</span>
+          <span class="password-wrap">
+            <input id="admin-password" name="password" type="password" autocomplete="current-password" placeholder="Digite a senha" required>
+            <button type="button" class="toggle-pass" id="admin-toggle-password" aria-label="Mostrar senha">Mostrar</button>
+          </span>
+        </label>
+
+        <p class="form-error" id="admin-login-error" role="alert" hidden></p>
+
+        <button type="submit" class="btn btn-primary btn-block" id="admin-login-submit">Entrar na administração</button>
+      </form>
+
+      <div class="login-footer">
+        <span>SESI • Educação para a indústria</span>
+        <a href="/" class="link-red">Voltar ao login do professor <span aria-hidden="true">→</span></a>
+      </div>
+    </section>
+
+    <aside class="login-side" aria-hidden="true">
+      <div class="side-badge">ADMIN<br>LAB</div>
+      <p>Controle as máquinas, as contas de acesso e todos os horários do laboratório.</p>
+      <ul class="side-list">
+        <li><span>01</span> Gerencie máquinas</li>
+        <li><span>02</span> Acompanhe reservas</li>
+        <li><span>03</span> Cadastre professores</li>
+      </ul>
+    </aside>
+  </main>
+
+  <footer class="page-footer">Acesso restrito • Rede Fab Lab Presidente Prudente</footer>
+
+  <script src="/js/common.js"></script>
+  <script src="/js/admin-login.js"></script>
+</body>
+</html>
