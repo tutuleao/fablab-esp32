@@ -451,6 +451,9 @@ function storeErrorHint(error) {
   if (code === '42P01' || /relation .* does not exist/i.test(text)) {
     return 'As tabelas ainda não existem no Supabase. Execute o arquivo supabase/schema.sql no SQL Editor do projeto.';
   }
+  if (code === 'PGRST205' || /could not find the table|schema cache/i.test(text)) {
+    return 'As tabelas não foram encontradas. Execute o arquivo supabase/schema.sql no SQL Editor do MESMO projeto Supabase da SUPABASE_URL.';
+  }
   if (code === '42501' || /row-level security/i.test(text)) {
     return 'A chave configurada não tem permissão. Use a chave service_role do Supabase (não a chave anon).';
   }

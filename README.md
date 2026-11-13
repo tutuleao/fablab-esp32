@@ -118,6 +118,7 @@ A resposta mostra se as variáveis chegaram ao servidor (`checks`) e qual foi o 
 |---|---|
 | `supabaseUrl: false` ou `serviceRoleKey: false` | cadastre as variáveis na Vercel e faça **Redeploy** |
 | `relation "public.users" does not exist` | execute **`supabase/schema.sql`** no SQL Editor do Supabase |
+| `Could not find the table ... in the schema cache` | as tabelas não existem nesse projeto: execute **`supabase/schema.sql`** |
 | `row-level security` / `42501` | use a chave **`service_role`**, não a `anon` |
 | `Invalid API key` / `PGRST301` | copie novamente a chave `service_role` |
 | `Invalid path` / `PGRST125` | em `SUPABASE_URL` use só `https://SEU-PROJETO.supabase.co` (sem `/rest/v1`) |
