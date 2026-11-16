@@ -1,7 +1,7 @@
 'use strict';
 
 const FabLab = (() => {
-  let toastTimer = null;
+  let audioContext = null;
 
   async function api(path, options = {}) {
     const config = {
@@ -131,25 +131,171 @@ const FabLab = (() => {
     });
   }
 
-  function toast(message, type = 'success') {
-    const element = document.getElementById('toast');
-    if (!element) return;
-    element.textContent = message;
-    element.classList.toggle('error', type === 'error');
+  function ensureToastStack() {
+    let stack = document.getElementById('toast-stack');
+    if (stack) return stack;
+    stack = document.createElement('div');
+    stack.id = 'toast-stack';
+    stack.className = 'toast-stack';
+    stack.setAttribute('aria-live', 'polite');
+    stack.setAttribute('aria-atomic', 'false');
+    document.body.appendChild(stack);
+    return stack;
+  }
+
+  // Som curto gerado no navegador (sem arquivo de áudio).
+  function playSound(kind) {
+    try {
+      const AudioCtor = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtor) return;
+      if (!audioContext) audioContext = new AudioCtor();
+      if (audioContext.state === 'suspended') {
+        audioContext.resume().catch(() => {});
+      }
+
+      let notes;
+      let volume;
+      let length;
+
+      if (kind === 'error') {
+        notes = [{ frequency: 329.63, at: 0 }, { frequency: 220, at: 0.12 }];
+        volume = 0.035;
+        length = 0.16;
+      } else if (kind === 'open') {
+        notes = [{ frequency: 523.25, at: 0 }, { frequency: 783.99, at: 0.065 }];
+        volume = 0.022;
+        length = 0.1;
+      } else {
+        notes = [{ frequency: 659.25, at: 0 }, { frequency: 987.77, at: 0.095 }];
+        volume = 0.035;
+        length = 0.16;
+      }
+
+      const start = audioContext.currentTime + 0.02;
+
+      for (const note of notes) {
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(note.frequency, start + note.at);
+        gain.gain.setValueAtTime(0.0001, start + note.at);
+        gain.gain.exponentialRampToValueAtTime(volume, start + note.at + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + note.at + length);
+        oscillator.connect(gain);
+        gain.connect(audioContext.destination);
+        oscillator.start(start + note.at);
+        oscillator.stop(start + note.at + length + 0.02);
+      }
+    } catch {
+      // O som é um extra: se o navegador bloquear, a notificação continua.
+    }
+  }
+
+  // Navegadores só liberam áudio depois de uma interação do usuário.
+  function primeAudio() {
+    try {
+      const AudioCtor = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtor) return;
+      if (!audioContext) audioContext = new AudioCtor();
+      if (audioContext.state === 'suspended') {
+        audioContext.resume().catch(() => {});
+      }
+    } catch {
+      // Sem áudio: o restante da interface continua funcionando.
+    }
+  }
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('pointerdown', primeAudio, { once: true, passive: true });
+    document.addEventListener('keydown', primeAudio, { once: true });
+  }
+
+  // Libera o áudio a partir de um clique (usado pelo painel do administrador).
+  function unlockSound() {
+    primeAudio();
+  }
+
+  function isSoundReady() {
+    return Boolean(audioContext && audioContext.state === 'running');
+  }
+
+  function dismissToast(element) {
+    if (!element || element.dataset.leaving === '1') return;
+    element.dataset.leaving = '1';
+    clearTimeout(element.toastTimer);
+    element.classList.remove('is-visible');
+    element.classList.remove('show');
+    element.classList.add('is-leave');
+    const remove = () => element.remove();
+    element.addEventListener('transitionend', remove, { once: true });
+    setTimeout(remove, 450);
+  }
+
+  function toast(message, type = 'success', options = {}) {
+    const stack = ensureToastStack();
+    const kind = type === 'error' ? 'error' : 'success';
+
+    const element = document.createElement('div');
+    element.className = `toast toast-${kind}`;
+    element.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+
+    const icon = document.createElement('span');
+    icon.className = 'toast-icon';
+    icon.setAttribute('aria-hidden', 'true');
+    icon.innerHTML =
+      kind === 'error'
+        ? '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><path d="M12 6.5v7"/><path d="M12 17.3v.2"/></svg>'
+        : '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+
+    const text = document.createElement('p');
+    text.className = 'toast-text';
+    text.textContent = message;
+
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'toast-close';
+    close.setAttribute('aria-label', 'Fechar notificação');
+    close.innerHTML =
+      '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
+    close.addEventListener('click', () => dismissToast(element));
+
+    element.append(icon, text, close);
+    stack.appendChild(element);
+
+    // Mantém no máximo 4 cartões na tela.
+    while (stack.children.length > 4) {
+      const oldest = stack.firstElementChild;
+      clearTimeout(oldest.toastTimer);
+      oldest.remove();
+    }
+
+    // Força o navegador a aplicar o estado inicial antes da animação.
+    void element.offsetWidth;
+    element.classList.add('is-visible');
+    // Compatibilidade: garante exibição mesmo se o navegador tiver o CSS antigo em cache.
     element.classList.add('show');
-    if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => {
-      element.classList.remove('show');
-    }, 4200);
+
+    element.toastTimer = setTimeout(
+      () => dismissToast(element),
+      kind === 'error' ? 6000 : 4500
+    );
+
+    if (options.sound !== false) playSound(kind);
+    return element;
   }
 
   function openDialog(dialog) {
     if (!dialog) return;
+    const alreadyOpen = dialog.open || dialog.hasAttribute('open');
+
     if (typeof dialog.showModal === 'function') {
       if (!dialog.open) dialog.showModal();
     } else {
       dialog.setAttribute('open', '');
     }
+
+    // Som curto ao abrir qualquer popup (somente na primeira abertura).
+    if (!alreadyOpen) playSound('open');
   }
 
   function closeDialog(dialog) {
@@ -226,6 +372,9 @@ const FabLab = (() => {
     roomLabel,
     sortRooms,
     toast,
+    playSound,
+    unlockSound,
+    isSoundReady,
     openDialog,
     closeDialog,
     wireDialogClose,

@@ -44,8 +44,15 @@
     username: document.getElementById('new-username'),
     userPassword: document.getElementById('new-user-password'),
     userFormError: document.getElementById('user-form-error'),
-    userSubmit: document.getElementById('user-submit')
+    userSubmit: document.getElementById('user-submit'),
+    soundToggle: document.getElementById('admin-sound-toggle'),
+    soundLabel: document.getElementById('admin-sound-label')
   };
+
+  const SOUND_KEY = 'fablab-admin-sound';
+  const NOTIFICATION_INTERVAL = 10000;
+  let notificationSince = null;
+  let notificationBusy = false;
 
   function localISODate(date) {
     const year = date.getFullYear();
@@ -89,6 +96,7 @@
       elements.adminAvatar.textContent = FabLab.initials(state.user.name);
 
       await Promise.all([loadOverview(), loadBookings(), loadVisits(), loadMachines(), loadUsers()]);
+      startNotifications();
     } catch (error) {
       if (error.status === 401 || error.status === 403) {
         window.location.replace('/admin');
@@ -147,6 +155,113 @@
 
   async function refreshAll() {
     await Promise.all([loadOverview(), loadBookings(), loadVisits(), loadMachines(), loadUsers()]);
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Notificações em tempo real (reservas e envios de alunos)               */
+  /* ---------------------------------------------------------------------- */
+
+  function soundPreferred() {
+    // Ligado por padrão; o administrador pode silenciar no botão do topo.
+    return localStorage.getItem(SOUND_KEY) !== 'off';
+  }
+
+  function refreshSoundButton() {
+    const on = soundPreferred();
+    elements.soundToggle.classList.toggle('is-on', on);
+    elements.soundToggle.setAttribute('aria-pressed', String(on));
+    elements.soundLabel.textContent = on ? 'Som ligado' : 'Ativar som';
+  }
+
+  function toggleSound() {
+    if (soundPreferred()) {
+      localStorage.setItem(SOUND_KEY, 'off');
+      refreshSoundButton();
+      return;
+    }
+
+    localStorage.setItem(SOUND_KEY, 'on');
+    FabLab.unlockSound();
+    refreshSoundButton();
+    FabLab.toast('Som das notificações ativado neste computador.');
+  }
+
+  function showAdminNotification(item) {
+    const options = { sound: soundPreferred() };
+
+    if (item.type === 'booking') {
+      FabLab.toast(
+        `Nova reserva: ${FabLab.roomLabel(item.room)} • ${FabLab.formatDateShort(item.date)} • ${item.startTime}–${item.endTime} • ${item.userName}`,
+        'success',
+        options
+      );
+      return;
+    }
+
+    FabLab.toast(
+      `Alunos enviados: ${FabLab.roomLabel(item.room)} • ${item.students} ${FabLab.pluralize(
+        item.students,
+        'aluno',
+        'alunos'
+      )} • ${item.userName}`,
+      'success',
+      options
+    );
+  }
+
+  async function pollNotifications() {
+    if (notificationBusy) return;
+    notificationBusy = true;
+
+    try {
+      const query = notificationSince ? `?since=${encodeURIComponent(notificationSince)}` : '';
+      const data = await FabLab.api(`/api/admin/notifications${query}`);
+
+      // Primeira consulta: só sincroniza o horário com o servidor.
+      if (!notificationSince) {
+        notificationSince = data.now;
+        return;
+      }
+
+      notificationSince = data.now;
+
+      const items = data.items || [];
+      if (!items.length) return;
+
+      items.slice(-3).forEach(showAdminNotification);
+      await Promise.all([loadOverview(), loadBookings(), loadVisits()]);
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) {
+        window.location.replace('/admin');
+      }
+    } finally {
+      notificationBusy = false;
+    }
+  }
+
+  function startNotifications() {
+    refreshSoundButton();
+    if (soundPreferred()) FabLab.unlockSound();
+
+    pollNotifications();
+    setInterval(pollNotifications, NOTIFICATION_INTERVAL);
+
+    document.addEventListener('visibilitychange', () => {
+      refreshSoundButton();
+      if (!document.hidden) pollNotifications();
+    });
+
+    window.addEventListener('focus', () => {
+      refreshSoundButton();
+      pollNotifications();
+    });
+
+    // Depois do primeiro clique o navegador libera o áudio: atualiza o botão.
+    document.addEventListener(
+      'pointerdown',
+      () => setTimeout(refreshSoundButton, 250),
+      { once: true, passive: true }
+    );
   }
 
   /* ---------------------------------------------------------------------- */
@@ -613,6 +728,8 @@
     elements.tabs.forEach((tab) => {
       tab.addEventListener('click', () => switchView(tab.dataset.adminView));
     });
+
+    elements.soundToggle.addEventListener('click', toggleSound);
 
     elements.adminLogout.addEventListener('click', async () => {
       try {

@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#171717">
   <title>Administração — Rede Fab Lab Presidente Prudente</title>
   <link rel="icon" href="/img/logo.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/styles.css?v=20261116">
 </head>
 <body>
   <header class="topbar admin-topbar">
@@ -22,6 +22,16 @@
       <span class="admin-shell-label">ADMINISTRAÇÃO</span>
 
       <div class="user-menu">
+        <button
+          type="button"
+          class="btn btn-ghost btn-sm sound-toggle"
+          id="admin-sound-toggle"
+          aria-pressed="false"
+          title="Ativar o som das notificações neste computador"
+        >
+          <span class="sound-dot" aria-hidden="true"></span>
+          <span id="admin-sound-label">Ativar som</span>
+        </button>
         <a href="/app" class="nav-admin-link">Ir para a agenda</a>
         <span class="user-chip">
           <span class="avatar" id="admin-avatar">A</span>
@@ -282,9 +292,9 @@
     </section>
   </main>
 
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="false"></div>
 
-  <script src="/js/common.js"></script>
-  <script src="/js/admin.js"></script>
+  <script src="/js/common.js?v=20261116"></script>
+  <script src="/js/admin.js?v=20261116"></script>
 </body>
 </html>
