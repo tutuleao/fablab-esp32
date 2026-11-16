@@ -261,6 +261,18 @@ function zonedToday() {
   return `${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}`;
 }
 
+// Data (no fuso do aplicativo) de um horário ISO qualquer.
+function zonedDateKey(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const parts = {};
+  for (const part of TIME_ZONE_FORMATTER.formatToParts(date)) {
+    if (part.type !== 'literal') parts[part.type] = part.value;
+  }
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
 function getWeeks() {
   const parts = zonedNowParts();
   const today = new Date(parts.year, parts.month - 1, parts.day, 12, 0, 0, 0);
@@ -812,7 +824,16 @@ async function handleApi(req, res, url) {
   if (req.method === 'GET' && pathname === '/api/admin/student-visits') {
     const current = await requireAuth(req, res, 'admin');
     if (!current) return;
-    return sendJson(res, 200, { visits: sortVisits(await store.listAllVisits()) });
+
+    const today = zonedToday();
+    let visits = sortVisits(await store.listAllVisits());
+
+    // A aba de alunos mostra somente o histórico do dia de hoje.
+    if (url.searchParams.get('scope') === 'today') {
+      visits = visits.filter((visit) => zonedDateKey(visit.createdAt) === today);
+    }
+
+    return sendJson(res, 200, { visits, today });
   }
 
   // Eventos novos (reservas e envios de alunos) para o popup do administrador.
