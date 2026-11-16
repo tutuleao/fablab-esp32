@@ -31,7 +31,8 @@ O sistema já está preparado para a Vercel: a API fica em **`api/[...path].js`*
 1. Entre em <https://supabase.com> e crie um projeto (guarde a senha do banco).
 2. Abra **SQL Editor > New query**.
 3. Copie todo o conteúdo de **`supabase/schema.sql`** e execute (**Run**).
-   - Isso cria as tabelas `users`, `machines`, `bookings` e `student_visits`, os índices e o RLS.
+   - Isso cria as tabelas `users`, `machines`, `bookings`, `student_visits` e `visit_requests`, os índices e o RLS.
+   - Se o projeto Supabase **já existia** antes dos pedidos de envio, rode apenas **`supabase/migration-visit-requests.sql`**.
 
 ### 2. Copiar as credenciais
 
@@ -64,6 +65,7 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 | `SUPABASE_SERVICE_ROLE_KEY` | chave `service_role` |
 | `SESSION_SECRET` | segredo gerado no passo anterior |
 | `APP_TIMEZONE` | `America/Sao_Paulo` (opcional; já é o padrão) |
+| `DEVICE_TOKEN` | token do ESP32 (o mesmo do firmware) |
 
 4. Clique em **Deploy**. Não é necessário configurar build: a Vercel detecta `api/` e `public/` automaticamente. O arquivo **`vercel.json`** já cria as rotas `/app`, `/admin` e `/admin/dashboard`.
 
@@ -75,6 +77,7 @@ npx vercel env add SUPABASE_URL
 npx vercel env add SUPABASE_SERVICE_ROLE_KEY
 npx vercel env add SESSION_SECRET
 npx vercel env add APP_TIMEZONE
+npx vercel env add DEVICE_TOKEN
 npx vercel --prod
 ```
 
@@ -157,17 +160,36 @@ Variáveis de ambiente só entram em vigor em um **novo deploy**.
   - propósito (projeto, pesquisa etc.);
   - quantidade de alunos;
   - tempo médio de permanência no Fab Lab.
-- Lista dos alunos enviados, com opção de excluir registros.
+- O envio fica aguardando aprovação do administrador no ESP32.
+- Pop-up automático com o resultado (aceito ou recusado), mesmo que o professor esteja em outra aba.
+- Lista dos alunos aceitos, com opção de excluir registros.
 
 ### Administrador
 - Login separado em **`/admin`**.
 - Visão geral das próximas reservas e dos últimos envios.
 - Lista de todos os agendamentos, com cancelamento.
-- Lista de todos os alunos enviados.
+- Lista dos alunos enviados **hoje** (histórico diário).
+- Notificação sonora quando um professor reserva ou envia alunos.
+- Decisão de envio pelo ESP32: tela azul com **ACEITAR** (verde) e **DECLINAR** (vermelho).
 - Cadastro, renomeação e remoção de máquinas.
 - Cadastro e exclusão de contas de professores.
 - Redefinição de senha de qualquer usuário.
 - Acesso à agenda normal pelo botão **Ir para a agenda**.
+
+## Tela do ESP32 (aprovação de envios)
+
+O firmware em `projetosmarthouse/projetosmarthouse.ino` transforma o ESP32 com tela TFT touch no dispositivo de aprovação:
+
+- Consulta **`GET /api/device/visit-requests/pending`** a cada **3 segundos**, enviando o cabeçalho `X-Device-Token`.
+- Quando há pedido pendente, abre uma tela azul com:
+  - **“Professor XXXXX quer enviar XX alunos.”**
+  - **“Horas: XX:XX”**
+  - **DECLINAR** (vermelho, à esquerda) e **ACEITAR** (verde, à direita).
+- O toque envia **`POST /api/device/visit-requests/:id/decision`** com `{"decision":"accept"}` ou `{"decision":"decline"}`.
+- Aceitar cria o registro normal de alunos enviados; recusar apenas fecha o pedido.
+- Depois da decisão, a tela mostra o resultado e volta para a tela anterior.
+
+No firmware e na Vercel, use o **mesmo** valor de `DEVICE_TOKEN`. Sem ele, os endpoints do dispositivo respondem **503**.
 
 ## Horários configurados
 

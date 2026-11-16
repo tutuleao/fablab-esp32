@@ -426,6 +426,43 @@ async function requireAuth(req, res, role = null) {
   return session;
 }
 
+function requireDevice(req, res) {
+  const expected = String(process.env.DEVICE_TOKEN || '');
+  if (!expected) {
+    sendJson(res, 503, {
+      error: 'Dispositivo não configurado. Defina DEVICE_TOKEN na Vercel.'
+    });
+    return false;
+  }
+
+  const provided = String(req.headers['x-device-token'] || '');
+  if (provided !== expected) {
+    sendJson(res, 401, { error: 'Token do dispositivo inválido.' });
+    return false;
+  }
+
+  return true;
+}
+
+// Horário (HH:MM) no fuso do aplicativo, usado na tela do ESP32.
+function zonedTimeLabel(value) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '--:--';
+
+  const parts = {};
+  for (const part of TIME_ZONE_FORMATTER.formatToParts(date)) {
+    if (part.type !== 'literal') parts[part.type] = part.value;
+  }
+
+  return `${pad2(Number(parts.hour) % 24)}:${parts.minute}`;
+}
+
+function sortVisitRequests(requests) {
+  return [...requests].sort((a, b) =>
+    String(b.createdAt).localeCompare(String(a.createdAt))
+  );
+}
+
 function sortBookings(bookings) {
   return [...bookings].sort((a, b) => {
     const keyA = `${a.date} ${a.start}`;
@@ -650,7 +687,8 @@ async function handleCreateVisit(req, res, session) {
     return sendJson(res, 400, { error: 'Selecione um tempo médio válido.' });
   }
 
-  const visit = await store.createVisit({
+  // O envio vira um pedido pendente: o administrador decide no ESP32.
+  const request = await store.createVisitRequest({
     userId: session.user.id,
     userName: session.user.name,
     userLogin: session.user.username,
@@ -660,7 +698,7 @@ async function handleCreateVisit(req, res, session) {
     avgTime
   });
 
-  return sendJson(res, 201, { visit });
+  return sendJson(res, 202, { request, pending: true });
 }
 
 async function handleApi(req, res, url) {
@@ -784,6 +822,101 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, { ok: true });
   }
 
+  /* --------------------------- Pedidos de envio --------------------------- */
+
+  if (req.method === 'GET' && pathname === '/api/student-visit-requests') {
+    const current = await requireAuth(req, res);
+    if (!current) return;
+
+    const requests = sortVisitRequests(
+      await store.listVisitRequestsByUser(current.user.id)
+    );
+    return sendJson(res, 200, { requests });
+  }
+
+  const requestSeen = pathname.match(/^\/api\/student-visit-requests\/([^/]+)\/seen$/);
+  if (req.method === 'POST' && requestSeen) {
+    const current = await requireAuth(req, res);
+    if (!current) return;
+
+    const request = await store.findVisitRequest(requestSeen[1]);
+    if (!request) return sendJson(res, 404, { error: 'Solicitação não encontrada.' });
+    if (current.user.role !== 'admin' && request.userId !== current.user.id) {
+      return sendJson(res, 403, { error: 'Sem permissão para esta solicitação.' });
+    }
+    if (request.status === 'pending') {
+      return sendJson(res, 409, { error: 'Esta solicitação ainda está aguardando resposta.' });
+    }
+
+    const updated = await store.markVisitRequestSeen(request.id);
+    return sendJson(res, 200, { request: updated });
+  }
+
+  /* ------------------------------ Dispositivo ----------------------------- */
+
+  if (req.method === 'GET' && pathname === '/api/device/visit-requests/pending') {
+    if (!requireDevice(req, res)) return;
+
+    const pending = (await store.listAllVisitRequests())
+      .filter((request) => request.status === 'pending')
+      .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
+
+    const request = pending[0] || null;
+
+    return sendJson(res, 200, {
+      request: request
+        ? {
+            id: request.id,
+            userName: request.userName,
+            room: request.room,
+            purpose: request.purpose,
+            students: request.students,
+            time: zonedTimeLabel(request.createdAt),
+            createdAt: request.createdAt
+          }
+        : null
+    });
+  }
+
+  const deviceDecision = pathname.match(
+    /^\/api\/device\/visit-requests\/([^/]+)\/decision$/
+  );
+  if (req.method === 'POST' && deviceDecision) {
+    if (!requireDevice(req, res)) return;
+
+    const body = await readJson(req);
+    const decision = String(body.decision || '');
+    if (decision !== 'accept' && decision !== 'decline') {
+      return sendJson(res, 400, { error: 'Decisão inválida. Use accept ou decline.' });
+    }
+
+    const request = await store.findVisitRequest(deviceDecision[1]);
+    if (!request) return sendJson(res, 404, { error: 'Solicitação não encontrada.' });
+    if (request.status !== 'pending') {
+      return sendJson(res, 409, { error: 'Esta solicitação já foi respondida.' });
+    }
+
+    if (decision === 'accept') {
+      await store.createVisit({
+        userId: request.userId,
+        userName: request.userName,
+        userLogin: request.userLogin,
+        room: request.room,
+        purpose: request.purpose,
+        students: request.students,
+        avgTime: request.avgTime
+      });
+    }
+
+    const status = decision === 'accept' ? 'accepted' : 'declined';
+    const updated = await store.decideVisitRequest(request.id, status);
+    if (!updated) {
+      return sendJson(res, 409, { error: 'Esta solicitação já foi respondida.' });
+    }
+
+    return sendJson(res, 200, { ok: true, status });
+  }
+
   /* -------------------------------- Admin --------------------------------- */
 
   if (req.method === 'GET' && pathname === '/api/admin/overview') {
@@ -850,9 +983,9 @@ async function handleApi(req, res, url) {
     // Limita a janela para não repetir eventos antigos ao abrir o painel.
     const from = Math.max(since, now.getTime() - 24 * 60 * 60 * 1000);
 
-    const [bookings, visits] = await Promise.all([
+    const [bookings, requests] = await Promise.all([
       store.listAllBookings(),
-      store.listAllVisits()
+      store.listAllVisitRequests()
     ]);
 
     const items = [];
@@ -874,18 +1007,20 @@ async function handleApi(req, res, url) {
       });
     }
 
-    for (const visit of visits) {
-      const at = Date.parse(visit.createdAt);
+    for (const request of requests) {
+      if (request.status !== 'pending') continue;
+      const at = Date.parse(request.createdAt);
       if (Number.isNaN(at) || at <= from || at > now.getTime()) continue;
       items.push({
-        id: visit.id,
-        type: 'visit',
-        at: visit.createdAt,
-        userName: visit.userName,
-        room: visit.room,
-        students: visit.students,
-        purpose: visit.purpose,
-        avgTime: visit.avgTime
+        id: request.id,
+        type: 'visit-request',
+        at: request.createdAt,
+        userName: request.userName,
+        room: request.room,
+        students: request.students,
+        purpose: request.purpose,
+        avgTime: request.avgTime,
+        time: zonedTimeLabel(request.createdAt)
       });
     }
 
