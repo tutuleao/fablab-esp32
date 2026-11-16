@@ -503,6 +503,12 @@ function storeErrorHint(error) {
   if (code === 'PGRST205' || /could not find the table|schema cache/i.test(text)) {
     return 'As tabelas não foram encontradas. Execute o arquivo supabase/schema.sql no SQL Editor do MESMO projeto Supabase da SUPABASE_URL.';
   }
+  if (code === '42703' || code === 'PGRST204' || /column .* does not exist/i.test(text)) {
+    return 'O banco está com uma versão antiga das tabelas. Execute novamente supabase/schema.sql e supabase/migration-visit-requests.sql no SQL Editor do Supabase.';
+  }
+  if (/is not a function|undefined \(reading/i.test(text)) {
+    return 'O servidor está rodando com arquivos desatualizados. Faça um novo deploy completo do projeto na Vercel.';
+  }
   if (code === '42501' || /row-level security/i.test(text)) {
     return 'A chave configurada não tem permissão. Use a chave service_role do Supabase (não a chave anon).';
   }
@@ -518,6 +524,28 @@ function storeErrorHint(error) {
   return null;
 }
 
+// A tabela de pedidos pode não existir logo após um deploy. O aviso do admin
+// (que consulta a cada 10 s) continua funcionando com reservas nesse caso.
+async function listVisitRequestsSafely() {
+  try {
+    return await store.listAllVisitRequests();
+  } catch (error) {
+    const code = String((error && error.code) || '');
+    const text = String((error && error.message) || '');
+    const missingSchema =
+      code === '42P01' ||
+      code === 'PGRST205' ||
+      code === '42703' ||
+      code === 'PGRST204' ||
+      /does not exist|could not find the table|schema cache/i.test(text);
+
+    if (!missingSchema) throw error;
+
+    console.error('visit_requests indisponível:', text);
+    return [];
+  }
+}
+
 async function handleHealth(req, res) {
   if (req.method !== 'GET') {
     return sendJson(res, 405, { error: 'Método não permitido.' });
@@ -531,6 +559,17 @@ async function handleHealth(req, res) {
 
   try {
     await store.init();
+
+    // ?deep=1 confirma se as tabelas novas já existem no banco de produção.
+    if (new URL(req.url, 'http://localhost').searchParams.get('deep') === '1') {
+      try {
+        const requests = await store.listAllVisitRequests();
+        checks.visitRequests = `ok (${requests.length})`;
+      } catch (error) {
+        checks.visitRequests = storeErrorHint(error) || error.message;
+      }
+    }
+
     return sendJson(res, 200, { ok: true, mode: store.mode, checks });
   } catch (error) {
     return sendJson(res, 500, {
@@ -985,7 +1024,7 @@ async function handleApi(req, res, url) {
 
     const [bookings, requests] = await Promise.all([
       store.listAllBookings(),
-      store.listAllVisitRequests()
+      listVisitRequestsSafely()
     ]);
 
     const items = [];
@@ -1260,7 +1299,9 @@ async function handler(req, res) {
         }
 
         if (status >= 500) console.error('Erro na API:', error);
-        sendJson(res, status, { error: message });
+        const payload = { error: message };
+        if (status >= 500 && error.code) payload.code = String(error.code);
+        sendJson(res, status, payload);
       } else {
         console.error('Erro na API:', error);
         res.end();
