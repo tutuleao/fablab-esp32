@@ -815,6 +815,64 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, { visits: sortVisits(await store.listAllVisits()) });
   }
 
+  // Eventos novos (reservas e envios de alunos) para o popup do administrador.
+  if (req.method === 'GET' && pathname === '/api/admin/notifications') {
+    const current = await requireAuth(req, res, 'admin');
+    if (!current) return;
+
+    const now = new Date();
+    const since = Date.parse(url.searchParams.get('since') || '');
+    if (Number.isNaN(since)) {
+      return sendJson(res, 200, { items: [], now: now.toISOString() });
+    }
+
+    // Limita a janela para não repetir eventos antigos ao abrir o painel.
+    const from = Math.max(since, now.getTime() - 24 * 60 * 60 * 1000);
+
+    const [bookings, visits] = await Promise.all([
+      store.listAllBookings(),
+      store.listAllVisits()
+    ]);
+
+    const items = [];
+
+    for (const booking of bookings) {
+      const at = Date.parse(booking.createdAt);
+      if (Number.isNaN(at) || at <= from || at > now.getTime()) continue;
+      items.push({
+        id: booking.id,
+        type: 'booking',
+        at: booking.createdAt,
+        userName: booking.userName,
+        room: booking.room,
+        date: booking.date,
+        startTime: booking.start,
+        endTime: booking.end,
+        students: booking.students,
+        machineName: booking.machineName || null
+      });
+    }
+
+    for (const visit of visits) {
+      const at = Date.parse(visit.createdAt);
+      if (Number.isNaN(at) || at <= from || at > now.getTime()) continue;
+      items.push({
+        id: visit.id,
+        type: 'visit',
+        at: visit.createdAt,
+        userName: visit.userName,
+        room: visit.room,
+        students: visit.students,
+        purpose: visit.purpose,
+        avgTime: visit.avgTime
+      });
+    }
+
+    items.sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+
+    return sendJson(res, 200, { items: items.slice(-20), now: now.toISOString() });
+  }
+
   if (req.method === 'GET' && pathname === '/api/admin/machines') {
     const current = await requireAuth(req, res, 'admin');
     if (!current) return;
