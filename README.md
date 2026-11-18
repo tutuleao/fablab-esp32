@@ -32,7 +32,8 @@ O sistema já está preparado para a Vercel: a API fica em **`api/[...path].js`*
 2. Abra **SQL Editor > New query**.
 3. Copie todo o conteúdo de **`supabase/schema.sql`** e execute (**Run**).
    - Isso cria as tabelas `users`, `machines`, `bookings`, `student_visits` e `visit_requests`, os índices e o RLS.
-   - Se o projeto Supabase **já existia** antes dos pedidos de envio, rode apenas **`supabase/migration-visit-requests.sql`**.
+   - Se o projeto Supabase **já existia** antes dos pedidos de envio, rode **`supabase/migration-visit-requests.sql`**.
+   - Se o projeto Supabase **já existia** antes do checklist de agendamentos, rode também **`supabase/migration-booking-checklist.sql`**.
 
 ### 2. Copiar as credenciais
 
@@ -137,8 +138,9 @@ Variáveis de ambiente só entram em vigor em um **novo deploy**.
 
 > **Importante:** entre na área administrativa e redefina as senhas iniciais na aba **Usuários** (botão **Senha**). O sistema não deixa a senha do administrador exposta nas telas de login.
 
-- Login do professor: **http://localhost:3000**
-- Login administrativo: **http://localhost:3000/admin**
+- Login único: **http://localhost:3000** (ou a raiz do site em produção).
+- O sistema identifica o papel pelo usuário: administrador vai para **`/admin/dashboard`**; professor vai para **`/app`**.
+- **`/admin`** mostra a mesma página de login (não existe mais uma tela separada de administrador).
 
 ## O que o sistema faz
 
@@ -165,9 +167,10 @@ Variáveis de ambiente só entram em vigor em um **novo deploy**.
 - Lista dos alunos aceitos, com opção de excluir registros.
 
 ### Administrador
-- Login separado em **`/admin`**.
+- Login na mesma página do professor; o sistema redireciona para o painel automaticamente.
 - Visão geral das próximas reservas e dos últimos envios.
 - Lista de todos os agendamentos, com cancelamento.
+- Botão **Certinho** no **Checklist**: a reserva feita no site some da lista depois de conferida.
 - Lista dos alunos enviados **hoje** (histórico diário).
 - Notificação sonora quando um professor reserva ou envia alunos.
 - Decisão de envio pelo ESP32: tela azul com **ACEITAR** (verde) e **DECLINAR** (vermelho).
@@ -188,6 +191,7 @@ O firmware em `projetosmarthouse/projetosmarthouse.ino` transforma o ESP32 com t
 - O toque envia **`POST /api/device/visit-requests/:id/decision`** com `{"decision":"accept"}` ou `{"decision":"decline"}`.
 - Aceitar cria o registro normal de alunos enviados; recusar apenas fecha o pedido.
 - Depois da decisão, a tela mostra o resultado e volta para a tela anterior.
+- A aba **Horários** consulta **`GET /api/device/bookings/today`** ao abrir e a cada **60 segundos**: desenha uma linha por reserva de hoje com sala, horário (`início-fim`) e quantidade de alunos (até 6 linhas).
 
 No firmware e na Vercel, use o **mesmo** valor de `DEVICE_TOKEN`. Sem ele, os endpoints do dispositivo respondem **503**.
 
@@ -226,7 +230,11 @@ fablab/
 │   ├── store.js              # banco: JSON local ou Supabase
 │   └── session.js            # cookie de sessão assinado (HMAC)
 ├── supabase/
-│   └── schema.sql            # tabelas, índices e RLS do Supabase
+│   ├── schema.sql            # tabelas, índices e RLS do Supabase
+│   ├── migration-visit-requests.sql
+│   └── migration-booking-checklist.sql
+├── tests/
+│   └── checklist.test.js      # teste do checklist de agendamentos
 ├── vercel.json               # rotas /app, /admin e /admin/dashboard
 ├── .env.example              # modelo das variáveis de ambiente
 ├── package.json
@@ -235,9 +243,8 @@ fablab/
 ├── data/
 │   └── db.json               # banco local (criado automaticamente)
 └── public/
-    ├── index.html            # login do professor
+    ├── index.html            # login único (professor e administrador)
     ├── app.html              # agenda e envio de alunos
-    ├── admin.html            # login administrativo
     ├── admin-dashboard.html  # painel administrativo
     ├── css/styles.css
     ├── img/logo.svg
@@ -245,7 +252,6 @@ fablab/
         ├── common.js
         ├── login.js
         ├── app.js
-        ├── admin-login.js
         └── admin.js
 ```
 
@@ -255,6 +261,18 @@ fablab/
 - **Produção (Supabase):** os dados ficam nas tabelas do projeto Supabase. Use **Database > Backups** ou `pg_dump` para backups.
 - As senhas são armazenadas com hash `scrypt` e salt, não em texto puro.
 - As sessões são cookies assinados com `SESSION_SECRET` e duram 8 horas. Trocar a senha de um usuário invalida as sessões antigas dele.
+
+## Testes
+
+O teste de integração sobe um Microsoft Graph falso e o servidor real, então não precisa de credenciais da Microsoft:
+
+```bash
+npm test
+# alternativa sem npm:
+node --test tests/
+```
+
+Ele cobre: login único com redirecionamento do administrador, reserva pendente aparecendo para o administrador, marcação de **Certinho** (só admin), erro para reserva inexistente e o horário continuar ocupado depois de conferido.
 
 ## Observações
 

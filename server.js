@@ -26,7 +26,9 @@ const ROOMS = [
   '9A', '9B', '9C',
   '1A', '1B', '1C',
   '2A', '2B', '2C',
-  '3A', '3B', '3C'
+  '3A', '3B', '3C',
+  '4A', '4B', '4C',
+  '5A', '5B', '5C'
 ];
 
 const AVG_TIMES = ['50 min', '1h40min', '2h30min', '3h20min', '4h10min', 'Mais de 4h'];
@@ -74,7 +76,9 @@ const MIME_TYPES = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.ico': 'image/x-icon',
-  '.woff2': 'font/woff2'
+  '.woff2': 'font/woff2',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
+  '.txt': 'text/plain; charset=utf-8'
 };
 
 /* -------------------------------------------------------------------------- */
@@ -500,11 +504,17 @@ function storeErrorHint(error) {
   if (code === '42P01' || /relation .* does not exist/i.test(text)) {
     return 'As tabelas ainda não existem no Supabase. Execute o arquivo supabase/schema.sql no SQL Editor do projeto.';
   }
+  // PostgREST devolve PGRST204 quando falta uma coluna nova; precisa vir antes
+  // do teste de "schema cache", que também aparece nessa mensagem.
+  if (
+    code === '42703' ||
+    code === 'PGRST204' ||
+    /column .* does not exist|could not find the .* column/i.test(text)
+  ) {
+    return 'O banco está com uma versão antiga das tabelas. Execute no SQL Editor do Supabase: supabase/schema.sql, supabase/migration-visit-requests.sql e supabase/migration-booking-checklist.sql.';
+  }
   if (code === 'PGRST205' || /could not find the table|schema cache/i.test(text)) {
     return 'As tabelas não foram encontradas. Execute o arquivo supabase/schema.sql no SQL Editor do MESMO projeto Supabase da SUPABASE_URL.';
-  }
-  if (code === '42703' || code === 'PGRST204' || /column .* does not exist/i.test(text)) {
-    return 'O banco está com uma versão antiga das tabelas. Execute novamente supabase/schema.sql e supabase/migration-visit-requests.sql no SQL Editor do Supabase.';
   }
   if (/is not a function|undefined \(reading/i.test(text)) {
     return 'O servidor está rodando com arquivos desatualizados. Faça um novo deploy completo do projeto na Vercel.';
@@ -608,7 +618,7 @@ async function handleLogin(req, res, adminOnly) {
   res.setHeader('Set-Cookie', createSessionCookie(user));
   return sendJson(res, 200, {
     user: publicUser(user),
-    redirect: adminOnly ? '/admin/dashboard' : '/app'
+    redirect: user.role === 'admin' ? '/admin/dashboard' : '/app'
   });
 }
 
@@ -917,6 +927,23 @@ async function handleApi(req, res, url) {
     });
   }
 
+  // Reservas de hoje para a aba "Horarios" da tela do Fab Lab.
+  if (req.method === 'GET' && pathname === '/api/device/bookings/today') {
+    if (!requireDevice(req, res)) return;
+
+    const today = zonedToday();
+    const bookings = (await store.listBookingsByDates([today]))
+      .sort((a, b) => String(a.start).localeCompare(String(b.start)))
+      .map((booking) => ({
+        room: booking.room,
+        start: booking.start,
+        end: booking.end,
+        students: booking.students
+      }));
+
+    return sendJson(res, 200, { date: today, bookings });
+  }
+
   const deviceDecision = pathname.match(
     /^\/api\/device\/visit-requests\/([^/]+)\/decision$/
   );
@@ -993,6 +1020,21 @@ async function handleApi(req, res, url) {
     return sendJson(res, 200, { bookings: sortBookings(await store.listAllBookings()) });
   }
 
+  // Checklist: o administrador confere a reserva feita no site e marca "Certinho".
+  const bookingDone = pathname.match(/^\/api\/admin\/bookings\/([^/]+)\/done$/);
+  if (req.method === 'POST' && bookingDone) {
+    const current = await requireAuth(req, res, 'admin');
+    if (!current) return;
+
+    const booking = await store.findBooking(bookingDone[1]);
+    if (!booking) return sendJson(res, 404, { error: 'Agendamento não encontrado.' });
+
+    const updated = await store.updateBooking(booking.id, {
+      doneAt: new Date().toISOString()
+    });
+    return sendJson(res, 200, { booking: updated });
+  }
+
   if (req.method === 'GET' && pathname === '/api/admin/student-visits') {
     const current = await requireAuth(req, res, 'admin');
     if (!current) return;
@@ -1015,12 +1057,13 @@ async function handleApi(req, res, url) {
 
     const now = new Date();
     const since = Date.parse(url.searchParams.get('since') || '');
-    if (Number.isNaN(since)) {
-      return sendJson(res, 200, { items: [], now: now.toISOString() });
-    }
+    const primeiraConsulta = Number.isNaN(since);
 
-    // Limita a janela para não repetir eventos antigos ao abrir o painel.
-    const from = Math.max(since, now.getTime() - 24 * 60 * 60 * 1000);
+    // Janela curta para não repetir eventos antigos. Pedidos pendentes entram
+    // sempre: continuam válidos até alguém decidir no dispositivo.
+    const from = primeiraConsulta
+      ? now.getTime()
+      : Math.max(since, now.getTime() - 24 * 60 * 60 * 1000);
 
     const [bookings, requests] = await Promise.all([
       store.listAllBookings(),
@@ -1047,19 +1090,35 @@ async function handleApi(req, res, url) {
     }
 
     for (const request of requests) {
-      if (request.status !== 'pending') continue;
-      const at = Date.parse(request.createdAt);
-      if (Number.isNaN(at) || at <= from || at > now.getTime()) continue;
+      if (request.status === 'pending') {
+        // Pendente é estado atual: aparece em qualquer consulta até ser decidido.
+        items.push({
+          id: request.id,
+          type: 'visit-request',
+          at: request.createdAt,
+          userName: request.userName,
+          room: request.room,
+          students: request.students,
+          purpose: request.purpose,
+          avgTime: request.avgTime,
+          time: zonedTimeLabel(request.createdAt)
+        });
+        continue;
+      }
+
+      // Decisão tomada no dispositivo: o administrador também é avisado.
+      const decidedAt = Date.parse(request.decidedAt || '');
+      if (Number.isNaN(decidedAt) || decidedAt <= from || decidedAt > now.getTime()) continue;
+
       items.push({
         id: request.id,
-        type: 'visit-request',
-        at: request.createdAt,
+        type: 'visit-decision',
+        at: request.decidedAt,
+        status: request.status,
         userName: request.userName,
         room: request.room,
         students: request.students,
-        purpose: request.purpose,
-        avgTime: request.avgTime,
-        time: zonedTimeLabel(request.createdAt)
+        time: zonedTimeLabel(request.decidedAt)
       });
     }
 
@@ -1200,8 +1259,8 @@ function serveStatic(req, res, pathname) {
     '/': 'index.html',
     '/app': 'app.html',
     '/app.html': 'app.html',
-    '/admin': 'admin.html',
-    '/admin.html': 'admin.html',
+    '/admin': 'index.html',
+    '/admin.html': 'index.html',
     '/admin/dashboard': 'admin-dashboard.html',
     '/admin-dashboard.html': 'admin-dashboard.html'
   };

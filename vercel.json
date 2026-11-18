@@ -15,7 +15,8 @@
   ],
   "rewrites": [
     { "source": "/app", "destination": "/app.html" },
-    { "source": "/admin", "destination": "/admin.html" },
+    { "source": "/admin", "destination": "/index.html" },
+    { "source": "/admin.html", "destination": "/index.html" },
     { "source": "/admin/dashboard", "destination": "/admin-dashboard.html" }
   ]
 }
